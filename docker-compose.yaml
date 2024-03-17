@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: vano_task
+      DB_USER: postgres
+      DB_PASS: 060606ijlL
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: vano_task
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 060606ijlL
+    ports:
+      - "8000:5432"
