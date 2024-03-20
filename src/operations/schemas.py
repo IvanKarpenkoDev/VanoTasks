@@ -1,12 +1,17 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel
 
 
-class OperationCreate(BaseModel):
+class Projects(BaseModel):
     id: int
-    quantity: str
-    figi: str
-    instrument_type: str
-    date: datetime
-    type: str
+    project_name: str
+    description: str = None
+    project_code: str = None
+    created_by: int
+    created_at: Optional[datetime] = None
+
+    # class Config:
+    #     orm_mode = True
+

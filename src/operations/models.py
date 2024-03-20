@@ -1,14 +1,19 @@
-from sqlalchemy import Table, Column, Integer, String, TIMESTAMP, MetaData
+from datetime import datetime
+
+from sqlalchemy import Table, Column, Integer, String, TIMESTAMP, MetaData, ForeignKey
+
+from src.auth.models import user
 
 metadata = MetaData()
 
-operation = Table(
-    "operation",
+projects = Table(
+    'projects',
     metadata,
-    Column("id", Integer, primary_key=True),
-    Column("quantity", String),
-    Column("figi", String),
-    Column("instrument_type", String, nullable=True),
-    Column("date", TIMESTAMP),
-    Column("type", String),
+    Column('id', Integer, primary_key=True),
+    Column('project_name', String(100), unique=True, nullable=False),
+    Column('description', String),  # You can specify the length of TEXT, or use String without length
+    Column('project_code', String),
+    Column('created_by', Integer, ForeignKey(user.c.id), nullable=False),
+    Column('created_at', TIMESTAMP, default=datetime.utcnow)
 )
+
