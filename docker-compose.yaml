@@ -47,8 +47,18 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=060606ijlL
       - POSTGRES_DB=vano_task
-    expose:
-      - 8000:8000
+    ports:
+      - 5432:5432
 
+  pgadmin:
+    image: dpage/pgadmin4
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: vano@mail.ru
+      PGADMIN_DEFAULT_PASSWORD: vanovano
+    ports:
+      - "5050:80"
+    depends_on:
+      - db
 volumes:
   postgres_data:
