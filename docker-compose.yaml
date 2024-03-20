@@ -31,7 +31,7 @@ version: '3.7'
 services:
   nudges:
     build: .
-    command: uvicorn app.main:app --host 0.0.0.0 --port 80
+    command: uvicorn src.main:app --host 0.0.0.0 --port 80
     volumes:
       - .:/usr/src/personalised_nudges
     ports:
@@ -48,7 +48,7 @@ services:
       - POSTGRES_PASSWORD=060606ijlL
       - POSTGRES_DB=vano_task
     expose:
-      - 8000
+      - 8000:8000
 
 volumes:
   postgres_data:
