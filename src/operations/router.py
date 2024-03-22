@@ -30,12 +30,12 @@ async def get_project_by_id(id: int, session: AsyncSession = Depends(get_async_s
 
 
 @router.get("/user_projects/{user_id}")
-async def get_user_projects_by_user_id(user_id: int, session: AsyncSession = Depends(get_async_session), user=Depends(current_user)):
+async def get_user_projects_by_user_id(user_id: int = Depends(current_user), session: AsyncSession = Depends(get_async_session)):
     query = (
         select(users_projects.c.user_id, users_projects.c.project_id, projects.c.id, projects.c.project_name,
                projects.c.description, projects.c.created_by)
         .join(projects, users_projects.c.project_id == projects.c.id)
-        .where(users_projects.c.user_id == user_id)
+        .where(users_projects.c.user_id == user_id.id)
     )
     result = await session.execute(query)
     # Convert data to UsersProjects objects (optional)
