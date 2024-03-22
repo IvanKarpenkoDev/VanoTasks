@@ -12,6 +12,10 @@ class Projects(BaseModel):
     created_by: int
     created_at: Optional[datetime] = None
 
-    # class Config:
-    #     orm_mode = True
 
+class UsersProjects(BaseModel):
+    user_id: int
+    project_id: int
+    description: str = None
+    project_code: str = None
+    created_by: int
