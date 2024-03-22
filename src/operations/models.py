@@ -17,3 +17,9 @@ projects = Table(
     Column('created_at', TIMESTAMP, default=datetime.utcnow)
 )
 
+users_projects = Table(
+    'users_projects',
+    metadata,
+    Column('user_id', Integer, ForeignKey(user.c.id), primary_key=True),
+    Column('project_id', Integer, ForeignKey(projects.c.id), primary_key=True)
+)
