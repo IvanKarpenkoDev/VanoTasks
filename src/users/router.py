@@ -13,7 +13,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=list[UserRead])
-async def get_all_users(session: AsyncSession = Depends(get_async_session)):
+async def get_all_users(session: AsyncSession = Depends(get_async_session), ):
     query = select(user)
     result = await session.execute(query)
     return result.all()

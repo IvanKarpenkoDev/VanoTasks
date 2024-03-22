@@ -16,7 +16,7 @@ router = APIRouter(
 
 
 @router.get("/", response_model=list[Projects])
-async def get_all_projects(session: AsyncSession = Depends(get_async_session)):
+async def get_all_projects(session: AsyncSession = Depends(get_async_session), user=Depends(current_user)):
     query = select(projects)
     result = await session.execute(query)
     return result.all()
@@ -30,7 +30,7 @@ async def get_project_by_id(id: int, session: AsyncSession = Depends(get_async_s
 
 
 @router.get("/user_projects/{user_id}")
-async def get_user_projects_by_user_id(user_id: int, session: AsyncSession = Depends(get_async_session)):
+async def get_user_projects_by_user_id(user_id: int, session: AsyncSession = Depends(get_async_session), user=Depends(current_user)):
     query = (
         select(users_projects.c.user_id, users_projects.c.project_id, projects.c.id, projects.c.project_name,
                projects.c.description, projects.c.created_by)
