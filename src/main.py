@@ -1,16 +1,15 @@
 from fastapi import FastAPI
+from fastapi_users import router
 
 from src.auth.base_config import auth_backend, fastapi_users
-from src.auth.schemas import UserRead, UserCreate
+from src.auth.schemas import UserCreate
 from src.operations.router import router as router_operation
 from src.users.router import router as router_operation_users
-
+from fastapi import Depends, Response
 from src.auth.schemas import UserRead
 
-
-
 app = FastAPI(
-    title="Trading App"
+    title="Vano Tasks"
 )
 
 app.include_router(
@@ -27,3 +26,5 @@ app.include_router(
 
 app.include_router(router_operation)
 app.include_router(router_operation_users)
+
+
