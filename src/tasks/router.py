@@ -4,11 +4,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from src.auth.base_config import current_user
-from src.auth.models import user
-from src.auth.schemas import UserRead
 from src.database import get_async_session
-from src.projects.models import projects, users_projects
-from src.projects.schemas import Projects, UsersProjectsResponse
 from src.tasks.models import tasks
 from src.tasks.schemas import Tasks, TasksRequest
 
@@ -51,9 +47,26 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
+@router.get("/", response_model=list[Tasks])
+async def get_all_tasks(session: AsyncSession = Depends(get_async_session)):
+    try:
+        query = select(tasks)
+        result = await session.execute(query)
+        return result.all()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_task_by_id(task_id: int, session: AsyncSession = Depends(get_async_session)):
+    delete_query = tasks.delete().where(tasks.c.task_id == task_id)
+    await session.execute(delete_query)
+    await session.commit()
+
+
 @router.get("/user_tasks/user_id", response_model=list[Tasks])
 async def get_users_tasks_by_user_user_id(user_id: int = Depends(current_user),
-                                     session: AsyncSession = Depends(get_async_session)):
+                                          session: AsyncSession = Depends(get_async_session)):
     try:
         query = select(tasks).where(tasks.c.assigned_to == user_id.id, tasks.c.created_by == user_id.id)
         result = await session.execute(query)
