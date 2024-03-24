@@ -20,7 +20,7 @@ async def get_all_users(session: AsyncSession = Depends(get_async_session), ):
     return result.all()
 
 
-@router.get("/{id}", response_model=UserRead)
+@router.get("/id", response_model=UserRead)
 async def get_user_by_id(id: int = Depends(current_user), session: AsyncSession = Depends(get_async_session)):
     query = select(user).where(user.c.id == id.id)
     result = await session.execute(query)

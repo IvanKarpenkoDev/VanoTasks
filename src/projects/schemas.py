@@ -12,8 +12,18 @@ class Projects(BaseModel):
     created_by: int
     created_at: Optional[datetime] = None
 
+class ProjectsRequest(BaseModel):
+    project_name: str
+    description: str = None
+    project_code: str = None
+
 
 class UsersProjects(BaseModel):
+    user_id: int
+    project_id: int
+
+
+class UsersProjectsResponse(BaseModel):
     user_id: int
     project_id: int
     description: str = None
