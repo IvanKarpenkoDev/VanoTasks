@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi_pagination import Page, paginate, add_pagination
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,11 +17,12 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=list[Projects])
+@router.get("/", response_model=Page[Projects])
 async def get_all_projects(session: AsyncSession = Depends(get_async_session)):
     query = select(projects)
     result = await session.execute(query)
-    return result.all()
+
+    return paginate(result.fetchall())
 
 
 @router.post("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -115,3 +117,6 @@ async def get_project_users(project_id: int, session: AsyncSession = Depends(get
     result = await session.execute(query)
 
     return result.all()
+
+
+add_pagination(router)

@@ -15,6 +15,7 @@ class Tasks(BaseModel):
     created_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
 
+
 class TasksRequest(BaseModel):
     task_name: str
     description: Optional[str] = None
@@ -23,15 +24,12 @@ class TasksRequest(BaseModel):
     project_id: int
 
 
+class TaskComments(BaseModel):
+    comment_text: str
+    task_id: int
+    commenter_id: int
+    commented_at: Optional[datetime] = None
 
-class UsersProjects(BaseModel):
-    user_id: int
-    project_id: int
 
-
-class UsersProjectsResponse(BaseModel):
-    user_id: int
-    project_id: int
-    description: str = None
-    project_code: str = None
-    created_by: int
+class TaskCommentsRequest(BaseModel):
+    comment_text: str

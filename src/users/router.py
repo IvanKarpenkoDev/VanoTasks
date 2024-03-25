@@ -6,6 +6,7 @@ from src.auth.base_config import current_user
 from src.auth.models import user
 from src.auth.schemas import UserRead
 from src.database import get_async_session
+from fastapi_pagination import Page, add_pagination, paginate
 
 router = APIRouter(
     prefix="/users",
@@ -13,11 +14,13 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=list[UserRead])
+@router.get("/", response_model=Page[UserRead])
 async def get_all_users(session: AsyncSession = Depends(get_async_session)):
     query = select(user)
     result = await session.execute(query)
-    return result.all()
+    users = result.fetchall()
+    return paginate(users)
+
 
 
 @router.get("/id", response_model=UserRead)
@@ -25,3 +28,5 @@ async def get_user_by_id(id: int = Depends(current_user), session: AsyncSession 
     query = select(user).where(user.c.id == id.id)
     result = await session.execute(query)
     return result.first()
+
+add_pagination(router)

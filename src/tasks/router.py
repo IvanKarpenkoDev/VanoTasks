@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi_pagination import add_pagination, Page, paginate
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from src.auth.base_config import current_user
 from src.database import get_async_session
-from src.tasks.models import tasks
-from src.tasks.schemas import Tasks, TasksRequest
+from src.tasks.models import tasks, task_comments
+from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest
 
 router = APIRouter(
     prefix="/tasks",
@@ -47,12 +48,12 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/", response_model=list[Tasks])
+@router.get("/", response_model=Page[Tasks])
 async def get_all_tasks(session: AsyncSession = Depends(get_async_session)):
     try:
         query = select(tasks)
         result = await session.execute(query)
-        return result.all()
+        return paginate(result.fetchall())
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -83,3 +84,35 @@ async def get_tasks_by_project_id(project_id: int, session: AsyncSession = Depen
         return result.all()
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Not Found')
+
+
+@router.get("/task_comments/{task_id}", response_model=list[TaskComments])
+async def get_task_comments_by_task_id(task_id: int, session: AsyncSession = Depends(get_async_session)):
+    try:
+        query = select(task_comments).where(tasks.c.task_id == task_id)
+        result = await session.execute(query)
+        return result.all()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='Not Found')
+
+
+@router.post("/task_comments/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def create_task_comments(task_id: int, task_comments_body: TaskCommentsRequest,
+                               session: AsyncSession = Depends(get_async_session),
+                               user=Depends(current_user)):
+    try:
+        new_task = task_comments.insert().values(
+            comment_text=task_comments_body.comment_text,
+            task_id=task_id,
+            commenter_id=user.id,
+        )
+
+        await session.execute(new_task)
+        await session.commit()
+
+    except IntegrityError as e:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad request')
+
+
+add_pagination(router)
