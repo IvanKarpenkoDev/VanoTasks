@@ -26,4 +26,5 @@ jobs:
           pycodestyle .
         continue-on-error: true
       - name: Run Tests
-        run: pytest
+        run: |
+          pytest src/test/tests.py
