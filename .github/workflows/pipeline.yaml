@@ -7,6 +7,7 @@ on:
 jobs:
   python-check-style:
     runs-on: ubuntu-latest
+
     services:
       localstack:
         image: localstack/localstack
@@ -22,10 +23,17 @@ jobs:
       - name: Git clone repo
         uses: actions/checkout@v1
 
-      - name: Set up Python
+      - name: Set up Docker
         uses: actions/setup-python@v2
-        with:
-          python-version: '3.11.0'
+
+      - name: Install Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker.io
+
+      - name: Start LocalStack
+        run: |
+          docker run -d --name localstack --network host localstack/localstack
 
       - name: Install dependencies
         run: |
@@ -38,4 +46,5 @@ jobs:
           pycodestyle .
 
       - name: Run Tests
-        run: pytest
+        run: |
+          pytest
