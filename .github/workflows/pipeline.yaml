@@ -2,7 +2,7 @@ name: Vano Tasks
 on:
   push:
     branches:
-      - main
+      - qwe
 
 jobs:
   python-check-style:
