@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Run s3
         run: |
-          docker-compose -f docker-compose.yaml up -d
+          docker-compose up -d
       - name: Git clone repo
         uses: actions/checkout@v1
 
