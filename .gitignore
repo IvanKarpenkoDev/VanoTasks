@@ -3,3 +3,4 @@
 __pycache__
 .env
 Dockerfile
+docker-compose.yaml
