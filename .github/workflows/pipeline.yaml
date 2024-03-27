@@ -27,4 +27,5 @@ jobs:
         continue-on-error: true
       - name: Run Tests
         run: |
+          uvicorn src.main:app --host localhost --port 8081 --reload
           pytest src/test/tests.py
