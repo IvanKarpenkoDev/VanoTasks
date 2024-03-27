@@ -8,11 +8,44 @@ from src.auth.base_config import current_user
 from src.database import get_async_session
 from src.tasks.models import tasks, task_comments
 from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest
+import logging
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(
     prefix="/tasks",
     tags=["Tasks"]
 )
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.ERROR)
+
+sender_email = "testmailasp@mail.ru"
+sender_password = "eJrai4Xtxvs78s4gQzBd"
+receiver_email = "ihapaz12345@gmail.com"
+
+
+def send_email(sender_email, sender_password, receiver_email, subject, message):
+    try:
+        with smtplib.SMTP_SSL('smtp.mail.ru', 465) as smtp:
+            smtp.login(sender_email, sender_password)
+
+            msg = MIMEMultipart()
+            msg['From'] = sender_email
+            msg['To'] = receiver_email
+            msg['Subject'] = subject
+            msg.attach(MIMEText(message, 'plain'))
+
+            smtp.send_message(msg)
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
+
+sender_email = "testmailasp@mail.ru"
+sender_password = "eJrai4Xtxvs78s4gQzBd"
+receiver_email = "ihapaz12345@gmail.com"
+subject = "VanoTasksLogger"
 
 
 @router.post("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -43,9 +76,14 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
         task = result.first()
         if task is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+        access_message = (f'GET task: '
+                          f'task_id: {task_id}')
+        send_email(sender_email, sender_password, receiver_email, subject, access_message)
         return task
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        error_message = str(e)
+        send_email(sender_email, sender_password, receiver_email, subject, error_message)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_message)
 
 
 @router.get("/", response_model=Page[Tasks])
