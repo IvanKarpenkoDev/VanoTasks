@@ -7,24 +7,35 @@ on:
 jobs:
   python-check-style:
     runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack
+        ports:
+          - "4566-4599:4566-4599"
+        environment:
+          - SERVICES=s3
+          - DEBUG=1
+        volumes:
+          - ./credentials:/root/.aws
+
     steps:
       - name: Git clone repo
         uses: actions/checkout@v1
 
       - name: Set up Python
-        run: |
-          sudo apt update
-          sudo apt install python3.11
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11.0'
 
-      - name: Install dependencies python
+      - name: Install dependencies
         run: |
-          python3.11 -m pip install --upgrade pip
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Python Check Style
         run: |
           pip install pycodestyle
           pycodestyle .
-        continue-on-error: true
+
       - name: Run Tests
-        run: |
-          pytest src/test/tests.py
+        run: pytest
