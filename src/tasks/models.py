@@ -34,11 +34,13 @@ tasks = Table(
     Column('due_date', TIMESTAMP, default=datetime.utcnow)
 )
 
-# -- Создание таблицы комментариев к задачам
-# CREATE TABLE task_comments (
-#     comment_id SERIAL PRIMARY KEY,
-#     task_id INTEGER REFERENCES tasks(task_id) NOT NULL,
-#     commenter_id INTEGER REFERENCES users(user_id) NOT NULL,
-#     comment_text TEXT NOT NULL,
-#     commented_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-# );
+# Таблица комментариев к задачам
+task_comments = Table(
+    'task_comments',
+    metadata,
+    Column('comment_id', Integer, primary_key=True, autoincrement=True),
+    Column('comment_text', String(100), nullable=False),
+    Column('task_id', Integer, ForeignKey(tasks.c.task_id), nullable=False),
+    Column('commenter_id', Integer, ForeignKey(user.c.id), nullable=False),
+    Column('commented_at',  TIMESTAMP, default=datetime.utcnow),
+)

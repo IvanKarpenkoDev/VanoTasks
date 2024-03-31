@@ -1,0 +1,33 @@
+name: Vano Tasks
+on:
+  push:
+    branches:
+      - qwe
+
+jobs:
+  python-check-style:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git clone repo
+        uses: actions/checkout@v1
+
+      - name: Set up Python
+        run: |
+          sudo apt update
+          sudo apt install python3.11
+
+      - name: Install dependencies python
+        run: |
+          python3.11 -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Python Check Style
+        run: |
+          pip install pycodestyle
+          pycodestyle .
+        continue-on-error: true
+      - name: Run App
+        run: |
+          uvicorn src.main:app --host localhost --port 8081 --reload &
+      - name: Run Tests
+        run: |
+          pytest src/test/tests.py
