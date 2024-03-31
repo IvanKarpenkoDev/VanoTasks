@@ -33,3 +33,8 @@ class TaskComments(BaseModel):
 
 class TaskCommentsRequest(BaseModel):
     comment_text: str
+
+
+class TaskStatuses(BaseModel):
+    status_id: int
+    status_name: str

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from src.auth.base_config import current_user
 from src.database import get_async_session
-from src.tasks.models import tasks, task_comments
+from src.tasks.models import tasks, task_comments, task_statuses
 from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest
 import logging
 import smtplib
@@ -76,14 +76,9 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
         task = result.first()
         if task is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-        access_message = (f'GET task: '
-                          f'task_id: {task_id}')
-        send_email(sender_email, sender_password, receiver_email, subject, access_message)
         return task
     except Exception as e:
-        error_message = str(e)
-        send_email(sender_email, sender_password, receiver_email, subject, error_message)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_message)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'{e}')
 
 
 @router.get("/", response_model=Page[Tasks])
@@ -151,6 +146,38 @@ async def create_task_comments(task_id: int, task_comments_body: TaskCommentsReq
     except IntegrityError as e:
         await session.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad request')
+
+
+from fastapi import HTTPException
+
+from fastapi import HTTPException
+
+
+@router.put("/{task_id}/change_status/{new_status_id}", status_code=status.HTTP_200_OK)
+async def change_task_status(task_id: int, new_status_id: int, session: AsyncSession = Depends(get_async_session)):
+    try:
+        task_query = select(tasks).where(tasks.c.task_id == task_id)
+        task_result = await session.execute(task_query)
+        task = task_result.scalar_one_or_none()
+
+        if task is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+        status_query = select(task_statuses).where(task_statuses.c.status_id == new_status_id)
+        status_result = await session.execute(status_query)
+        new_status = status_result.scalar_one_or_none()
+
+        if new_status is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="New status not found")
+
+        update_query = tasks.update().where(tasks.c.task_id == task_id).values(status_id=new_status_id)
+        await session.execute(update_query)
+        await session.commit()
+
+        return {"message": "Task status updated successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 add_pagination(router)
