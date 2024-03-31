@@ -1,3 +1,4 @@
+import boto3
 from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,12 @@ from src.auth.schemas import UserRead
 app = FastAPI(
     title="Vano Tasks"
 )
+
+s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
+                         aws_access_key_id='VANO@GMAIL.COMasdasdasd',
+                         aws_secret_access_key='IAMVANOasdasdas'
+                         )
+s3_client.create_bucket(Bucket='vano')
 
 app.add_middleware(
     CORSMiddleware,

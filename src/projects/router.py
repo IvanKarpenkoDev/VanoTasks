@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi_pagination import Page, paginate, add_pagination
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -9,7 +9,8 @@ from src.auth.models import user
 from src.auth.schemas import UserRead
 from src.database import get_async_session
 from src.projects.models import projects, users_projects
-from src.projects.schemas import Projects, UsersProjectsResponse, ProjectsRequest
+from src.projects.schemas import Projects, UsersProjectsResponse, ProjectsRequest, ProjectWithTaskCount
+from src.tasks.models import tasks
 
 router = APIRouter(
     prefix="/projects",
@@ -44,11 +45,24 @@ async def create_project(project: ProjectsRequest, session: AsyncSession = Depen
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad Request')
 
 
-@router.get("/{id}", response_model=Projects)
-async def get_project_by_id(id: int, session: AsyncSession = Depends(get_async_session), user=Depends(current_user)):
-    query = select(projects).where(projects.c.id == id)
-    result = await session.execute(query)
-    return result.first()
+@router.get("/{id}", response_model=ProjectWithTaskCount)
+async def get_project_with_task_count(id: int, session: AsyncSession = Depends(get_async_session)):
+    try:
+        project_query = select(projects).where(projects.c.id == id)
+        project_result = await session.execute(project_query)
+        project = project_result.first()
+
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+        task_count_query = select(func.count()).where(tasks.c.project_id == id)
+        task_count_result = await session.execute(task_count_query)
+        task_count = task_count_result.first()
+
+        return {"project": project, "task_count": int(task_count[0])}
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)

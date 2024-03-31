@@ -7,7 +7,7 @@ from starlette import status
 from src.auth.base_config import current_user
 from src.database import get_async_session
 from src.tasks.models import tasks, task_comments, task_statuses
-from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest
+from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest, TaskStatuses
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -61,6 +61,34 @@ async def create_task(task: TasksRequest, session: AsyncSession = Depends(get_as
         )
 
         await session.execute(new_task)
+        await session.commit()
+
+    except IntegrityError as e:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad request')
+
+@router.put("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_task(task_id: int, updated_task: TasksRequest, session: AsyncSession = Depends(get_async_session),
+                      user=Depends(current_user)):
+    try:
+        task_query = select(tasks).where(tasks.c.task_id == task_id)
+        task_result = await session.execute(task_query)
+        existing_task = task_result.scalar_one_or_none()
+
+        if existing_task is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+        update_values = {
+            "task_name": updated_task.task_name,
+            "description": updated_task.description,
+            "assigned_to": updated_task.assigned_to,
+            "project_id": updated_task.project_id
+        }
+
+        await session.execute(
+            tasks.update().where(tasks.c.task_id == task_id).values(**update_values)
+        )
+
         await session.commit()
 
     except IntegrityError as e:
@@ -175,6 +203,29 @@ async def change_task_status(task_id: int, new_status_id: int, session: AsyncSes
         await session.commit()
 
         return {"message": "Task status updated successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/{task_id}/status", response_model=TaskStatuses)
+async def get_task_status(task_id: int, session: AsyncSession = Depends(get_async_session)):
+    try:
+        task_query = select(tasks).where(tasks.c.task_id == task_id)
+        task_result = await session.execute(task_query)
+        task = task_result.first()
+
+        if task is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
+        status_query = select(task_statuses).where(task_statuses.c.status_id == task.status_id)
+        status_result = await session.execute(status_query)
+        task_status = status_result.first()
+
+        if task_status is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task status not found")
+
+        return task_status
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
