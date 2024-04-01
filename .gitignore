@@ -4,3 +4,4 @@ __pycache__
 .env
 Dockerfile
 docker-compose.yaml
+gpt.py

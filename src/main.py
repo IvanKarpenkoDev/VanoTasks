@@ -7,6 +7,7 @@ from src.auth.schemas import UserCreate
 from src.projects.router import router as router_operation
 from src.users.router import router as router_operation_users
 from src.tasks.router import router as router_operation_tasks
+from src.gigachat.routes import router as gigachat_router
 from src.auth.schemas import UserRead
 
 app = FastAPI(
@@ -42,3 +43,4 @@ app.include_router(
 app.include_router(router_operation)
 app.include_router(router_operation_users)
 app.include_router(router_operation_tasks)
+app.include_router(gigachat_router)

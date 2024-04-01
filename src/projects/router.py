@@ -17,7 +17,6 @@ router = APIRouter(
     tags=["Projects"]
 )
 
-
 @router.get("/", response_model=Page[Projects])
 async def get_all_projects(session: AsyncSession = Depends(get_async_session)):
     query = select(projects)
