@@ -8,3 +8,5 @@ pytest
 locust
 boto3
 fastapi_pagination
+gigachat
+gigachain

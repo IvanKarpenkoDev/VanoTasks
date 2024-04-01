@@ -9,7 +9,6 @@ from src.projects.models import projects
 
 metadata = MetaData()
 
-
 # Таблица статусов задач
 task_statuses = Table(
     'task_statuses',
@@ -17,7 +16,6 @@ task_statuses = Table(
     Column('status_id', Integer, primary_key=True, autoincrement=True),
     Column('status_name', String(50), unique=True, nullable=False)
 )
-
 
 # Таблица задач
 tasks = Table(
@@ -34,7 +32,7 @@ tasks = Table(
     Column('due_date', TIMESTAMP, default=datetime.utcnow)
 )
 
-# Таблица комментариев к задачам
+
 task_comments = Table(
     'task_comments',
     metadata,
@@ -42,5 +40,5 @@ task_comments = Table(
     Column('comment_text', String(100), nullable=False),
     Column('task_id', Integer, ForeignKey(tasks.c.task_id), nullable=False),
     Column('commenter_id', Integer, ForeignKey(user.c.id), nullable=False),
-    Column('commented_at',  TIMESTAMP, default=datetime.utcnow),
+    Column('commented_at', TIMESTAMP, default=datetime.utcnow),
 )

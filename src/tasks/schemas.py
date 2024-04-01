@@ -15,6 +15,11 @@ class Tasks(BaseModel):
     created_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
 
+class TasksCharts(BaseModel):
+    open: int
+    in_progress: int
+    close: int
+
 
 class TasksRequest(BaseModel):
     task_name: str
@@ -33,3 +38,8 @@ class TaskComments(BaseModel):
 
 class TaskCommentsRequest(BaseModel):
     comment_text: str
+
+
+class TaskStatuses(BaseModel):
+    status_id: int
+    status_name: str

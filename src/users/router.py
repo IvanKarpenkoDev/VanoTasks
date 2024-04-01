@@ -20,26 +20,49 @@ s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
                          aws_access_key_id='VANO@GMAIL.COMasdasdasd',
                          aws_secret_access_key='IAMVANOasdasdas'
                          )
-s3_client.create_bucket(Bucket='vano')
 
 
-@router.post("/upload-photo/")
-async def upload_photo(user_id: int, full_name: str, photo: UploadFile = File(...),
-                       session: AsyncSession = Depends(get_async_session), ):
+# @router.post("/upload-photo/")
+# async def upload_photo(user_id: int, full_name: str, photo: UploadFile = File(...),
+#                        session: AsyncSession = Depends(get_async_session), ):
+#     try:
+#         photo_data = await photo.read()
+#         photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
+#         s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
+#
+#         async for session in get_async_session():
+#             query = update(profile).where(profile.c.user_id == user_id).values(
+#                 photo_url=f"http://localhost:4566/vano/{photo_key}")
+#             await session.execute(query)
+#             await session.commit()
+#
+#         return {"message": "Photo uploaded successfully"}
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error occurred during photo upload: {str(e)}")
+@router.put("/upload-photo/")
+async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(...),
+                         session: AsyncSession = Depends(get_async_session)):
     try:
+        # Чтение данных фотографии
         photo_data = await photo.read()
+
+        # Загрузка фотографии в хранилище
         photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
         s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
 
-        async for session in get_async_session():
-            query = update(profile).where(profile.c.user_id == user_id).values(
-                photo_url=f"http://localhost:4566/vano/{photo_key}")
+        async with session.begin():
+            # Обновление данных профиля в базе данных
+            query = (
+                update(profile)
+                .where(profile.c.user_id == user_id)
+                .values(full_name=full_name, photo_url=f"http://localhost:4566/vano/{photo_key}")
+            )
             await session.execute(query)
-            await session.commit()
 
-        return {"message": "Photo uploaded successfully"}
+        return {"message": "Profile updated successfully"}
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error occurred during photo upload: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error occurred during profile update: {str(e)}")
 
 
 @router.get("/profile/{user_id}")
