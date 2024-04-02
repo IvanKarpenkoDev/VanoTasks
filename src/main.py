@@ -22,7 +22,7 @@ s3_client.create_bucket(Bucket='vano')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:9000/", "http://172.21.176.1:9500/", "http://192.168.1.112:9500/"],
+    allow_origins=["http://localhost:9000", "http://172.21.176.1:9500/", "http://192.168.1.112:9500/"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],

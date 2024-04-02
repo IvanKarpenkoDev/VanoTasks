@@ -15,6 +15,21 @@ class Tasks(BaseModel):
     created_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
 
+class TasksWithName(BaseModel):
+    task_id: int
+    task_name: str
+    description: Optional[str] = None
+    status_id: int
+    assigned_to: Optional[int] = None
+    created_by: int
+    project_id: int
+    project_name: str
+    created_at: Optional[datetime] = None
+    due_date: Optional[datetime] = None
+
+class TasksWithProjectName(Tasks):
+    project_name: str
+
 class TasksCharts(BaseModel):
     open: int
     in_progress: int

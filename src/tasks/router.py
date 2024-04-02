@@ -2,14 +2,16 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi_pagination import add_pagination, Page, paginate
 from langchain.schema import HumanMessage, SystemMessage
 from langchain.chat_models.gigachat import GigaChat
-from sqlalchemy import select, func
+from sqlalchemy import select, func, join, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from src.auth.base_config import current_user
 from src.database import get_async_session
+from src.projects.models import projects
 from src.tasks.models import tasks, task_comments, task_statuses
-from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest, TaskStatuses, TasksCharts
+from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest, TaskStatuses, TasksCharts, \
+    TasksWithName
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -99,26 +101,62 @@ async def update_task(task_id: int, updated_task: TasksRequest, session: AsyncSe
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad request')
 
 
-@router.get("/{task_id}", response_model=Tasks)
+@router.get("/{task_id}", response_model=TasksWithName)
 async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
-        query = select(tasks).where(tasks.c.task_id == task_id)
+        query = text(
+            f"""
+                    SELECT tasks.task_id,
+                           tasks.task_name,
+                           tasks.description,
+                           tasks.status_id,
+                           tasks.assigned_to,
+                           tasks.created_by,
+                           tasks.project_id,
+                           tasks.created_at,
+                           tasks.due_date,
+                           projects.project_name AS project_name
+                    FROM tasks
+                    JOIN projects ON tasks.project_id = projects.id
+                    WHERE tasks.task_id = :task_id
+                    """
+        ).bindparams(task_id=task_id)
         result = await session.execute(query)
         task = result.first()
+        print(task)
+
         if task is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+
         access_message = (f'GET task: '
                           f'task_id: {task_id}')
         send_email(sender_email, sender_password, receiver_email, subject, access_message)
+
         return task
+
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f'{e}')
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/", response_model=Page[Tasks])
+@router.get("/", response_model=Page[TasksWithName])
 async def get_all_tasks(session: AsyncSession = Depends(get_async_session)):
     try:
-        query = select(tasks)
+        query = text(
+            f"""
+                            SELECT tasks.task_id,
+                                   tasks.task_name,
+                                   tasks.description,
+                                   tasks.status_id,
+                                   tasks.assigned_to,
+                                   tasks.created_by,
+                                   tasks.project_id,
+                                   tasks.created_at,
+                                   tasks.due_date,
+                                   projects.project_name AS project_name
+                            FROM tasks
+                            JOIN projects ON tasks.project_id = projects.id
+                            """
+        )
         result = await session.execute(query)
         return paginate(result.fetchall())
     except Exception as e:
