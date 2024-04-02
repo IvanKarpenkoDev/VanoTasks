@@ -128,9 +128,9 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
         if task is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
-        access_message = (f'GET task: '
-                          f'task_id: {task_id}')
-        send_email(sender_email, sender_password, receiver_email, subject, access_message)
+        # access_message = (f'GET task: '
+        #                   f'task_id: {task_id}')
+        # send_email(sender_email, sender_password, receiver_email, subject, access_message)
 
         return task
 
