@@ -10,6 +10,7 @@ from src.database import get_async_session
 from fastapi_pagination import Page, add_pagination, paginate
 
 from src.users.models import profile
+from src.users.shemas import Profile
 
 router = APIRouter(
     prefix="/users",
@@ -81,6 +82,15 @@ async def get_user_profile(user_id: int, session: AsyncSession = Depends(get_asy
         return {"user_id": user_profile.user_id, "full_name": user_profile.full_name, "photo_url": photo_url}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error occurred while fetching user profile: {str(e)}")
+
+@router.get("/all/profile", response_model=Page[Profile])
+async def get_all_profiles(session: AsyncSession = Depends(get_async_session)):
+    query = select(profile)
+    result = await session.execute(query)
+    print(result)
+
+    return paginate(result.fetchall())
+
 
 
 @router.get("/", response_model=Page[UserRead])
