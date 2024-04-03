@@ -89,20 +89,14 @@ async def get_user_projects_by_user_id(user_id: int = Depends(current_user),
     return projects1
 
 
-@router.post("/user_projects/{username}/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def add_user_project(username: str, project_id: int, session: AsyncSession = Depends(get_async_session)):
-    user_query = select(user.c.id).where(user.c.username == username)
-    user_result = await session.execute(user_query)
-    user_row = user_result.first()
-    if user_row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User '{username}' not found")
-
+@router.post("/user_projects/{user_id}/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def add_user_project(user_id: int, project_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
-        await session.execute(users_projects.insert().values(user_id=user_row.id, project_id=project_id))
+        await session.execute(users_projects.insert().values(user_id=user_id, project_id=project_id))
         await session.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User project already exists")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"User project already exists{e}")
 
 
 @router.delete("/user_projects/{username}/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
