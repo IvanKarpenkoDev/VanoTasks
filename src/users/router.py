@@ -41,23 +41,33 @@ s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=f"Error occurred during photo upload: {str(e)}")
 @router.put("/upload-photo/")
-async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(...),
+async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(None),
                          session: AsyncSession = Depends(get_async_session)):
     try:
-        # Чтение данных фотографии
-        photo_data = await photo.read()
+        if photo is not None:
+            # Чтение данных фотографии
+            photo_data = await photo.read()
 
-        # Загрузка фотографии в хранилище
-        photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
-        s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
+            # Загрузка фотографии в хранилище
+            photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
+            s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
+
+            photo_url = f"http://localhost:4566/vano/{photo_key}"
+        else:
+            photo_url = None
 
         async with session.begin():
             # Обновление данных профиля в базе данных
             query = (
                 update(profile)
                 .where(profile.c.user_id == user_id)
-                .values(full_name=full_name, photo_url=f"http://localhost:4566/vano/{photo_key}")
+                .values(full_name=full_name)
             )
+
+            # If photo is not None, include photo_url in the update query
+            if photo_url is not None:
+                query = query.values(photo_url=photo_url)
+
             await session.execute(query)
 
         return {"message": "Profile updated successfully"}
