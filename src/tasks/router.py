@@ -123,7 +123,6 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
         ).bindparams(task_id=task_id)
         result = await session.execute(query)
         task = result.first()
-        print(task)
 
         if task is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
