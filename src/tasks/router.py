@@ -1,55 +1,72 @@
+from async_lru import alru_cache
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi_pagination import add_pagination, Page, paginate
-from langchain.schema import HumanMessage, SystemMessage
-from langchain.chat_models.gigachat import GigaChat
-from sqlalchemy import select, func, join, text
+from logger import logger
+from sqlalchemy import select, func, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
 from src.auth.base_config import current_user
 from src.database import get_async_session
-from src.projects.models import projects
 from src.tasks.models import tasks, task_comments, task_statuses
 from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest, TaskStatuses, TasksCharts, \
     TasksWithName
-import logging
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 router = APIRouter(
     prefix="/tasks",
     tags=["Tasks"]
 )
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.ERROR)
 
-sender_email = "testmailasp@mail.ru"
-sender_password = "eJrai4Xtxvs78s4gQzBd"
-receiver_email = "ihapaz12345@gmail.com"
-
-
-def send_email(sender_email, sender_password, receiver_email, subject, message):
-    try:
-        with smtplib.SMTP_SSL('smtp.mail.ru', 465) as smtp:
-            smtp.login(sender_email, sender_password)
-
-            msg = MIMEMultipart()
-            msg['From'] = sender_email
-            msg['To'] = receiver_email
-            msg['Subject'] = subject
-            msg.attach(MIMEText(message, 'plain'))
-
-            smtp.send_message(msg)
-    except Exception as e:
-        print(f"Failed to send email: {e}")
-
-
-sender_email = "testmailasp@mail.ru"
-sender_password = "eJrai4Xtxvs78s4gQzBd"
-receiver_email = "ihapaz12345@gmail.com"
-subject = "VanoTasksLogger"
+# logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
+# logger.setLevel(logging.ERROR)
+#
+# sender_email = "testmailasp@mail.ru"
+# sender_password = "eJrai4Xtxvs78s4gQzBd"
+# receiver_email = "ihapaz12345@gmail.com"
+#
+#
+# def send_email(sender_email, sender_password, receiver_email, subject, logger, level=logging.INFO):
+#     try:
+#         with smtplib.SMTP_SSL('smtp.mail.ru', 465) as smtp:
+#             smtp.login(sender_email, sender_password)
+#
+#             msg = MIMEMultipart()
+#             msg['From'] = sender_email
+#             msg['To'] = receiver_email
+#             msg['Subject'] = subject
+#
+#             # Get logs
+#             logs = get_logs(logger, level)
+#
+#             msg.attach(MIMEText(logs, 'plain'))
+#
+#             smtp.send_message(msg)
+#     except Exception as e:
+#         print(f"Failed to send email: {e}")
+#
+#
+# def get_logs(logger, level):
+#     log_stream = io.StringIO()
+#     handler = logging.StreamHandler(log_stream)
+#     formatter = logging.Formatter('%(levelname)s - %(message)s')
+#     handler.setFormatter(formatter)
+#     logger.addHandler(handler)
+#     logger.setLevel(level)
+#
+#     # Log whatever you want
+#     logger.info('Your log message here')
+#     # Remove the handler
+#     logger.removeHandler(handler)
+#
+#     return log_stream.getvalue()
+#
+#
+# sender_email = "testmailasp@mail.ru"
+# sender_password = "eJrai4Xtxvs78s4gQzBd"
+# receiver_email = "ihapaz12345@gmail.com"
+# subject = "VanoTasksLogger"
 
 
 @router.post("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -102,6 +119,7 @@ async def update_task(task_id: int, updated_task: TasksRequest, session: AsyncSe
 
 
 @router.get("/{task_id}", response_model=TasksWithName)
+@alru_cache(maxsize=32)
 async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
         query = text(
@@ -125,19 +143,15 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
         task = result.first()
 
         if task is None:
+            logger.error('Task not found')
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
-
-        # access_message = (f'GET task: '
-        #                   f'task_id: {task_id}')
-        # send_email(sender_email, sender_password, receiver_email, subject, access_message)
-
         return task
-
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.get("/", response_model=Page[TasksWithName])
+@alru_cache(maxsize=32)
 async def get_all_tasks(session: AsyncSession = Depends(get_async_session)):
     try:
         query = text(
@@ -181,6 +195,7 @@ async def get_users_tasks_by_user_user_id(user_id: int = Depends(current_user),
 
 
 @router.get("/charts/user_id", response_model=TasksCharts)
+@alru_cache(maxsize=32)
 async def get_user_charts_tasks(user_id: int = Depends(current_user),
                                 session: AsyncSession = Depends(get_async_session)):
     try:
@@ -208,6 +223,7 @@ async def get_user_charts_tasks(user_id: int = Depends(current_user),
 
 
 @router.get("/project_tasks/{project_id}", response_model=list[Tasks])
+@alru_cache(maxsize=32)
 async def get_tasks_by_project_id(project_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
         query = select(tasks).where(tasks.c.project_id == project_id)
@@ -218,9 +234,10 @@ async def get_tasks_by_project_id(project_id: int, session: AsyncSession = Depen
 
 
 @router.get("/task_comments/{task_id}", response_model=list[TaskComments])
+@alru_cache(maxsize=32)
 async def get_task_comments_by_task_id(task_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
-        query = select(task_comments).where(tasks.c.task_id == task_id)
+        query = select(task_comments).where(task_comments.c.task_id == task_id)
         result = await session.execute(query)
         return result.all()
     except Exception as e:
@@ -274,6 +291,7 @@ async def change_task_status(task_id: int, new_status_id: int, session: AsyncSes
 
 
 @router.get("/{task_id}/status", response_model=TaskStatuses)
+@alru_cache(maxsize=32)
 async def get_task_status(task_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
         task_query = select(tasks).where(tasks.c.task_id == task_id)

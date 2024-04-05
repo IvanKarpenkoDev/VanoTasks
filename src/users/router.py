@@ -1,4 +1,5 @@
 import boto3
+from async_lru import alru_cache
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy import select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,7 +41,7 @@ s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
 #         return {"message": "Photo uploaded successfully"}
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=f"Error occurred during photo upload: {str(e)}")
-@router.put("/upload-photo/")
+@router.put("/upload/photo")
 async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(None),
                          session: AsyncSession = Depends(get_async_session)):
     try:
@@ -77,6 +78,7 @@ async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(
 
 
 @router.get("/profile/{user_id}")
+@alru_cache(maxsize=32)
 async def get_user_profile(user_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
         async with session.begin():
@@ -93,7 +95,9 @@ async def get_user_profile(user_id: int, session: AsyncSession = Depends(get_asy
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error occurred while fetching user profile: {str(e)}")
 
+
 @router.get("/all/profile", response_model=Page[Profile])
+@alru_cache(maxsize=32)
 async def get_all_profiles(session: AsyncSession = Depends(get_async_session)):
     query = select(profile)
     result = await session.execute(query)
@@ -102,8 +106,8 @@ async def get_all_profiles(session: AsyncSession = Depends(get_async_session)):
     return paginate(result.fetchall())
 
 
-
 @router.get("/", response_model=Page[UserRead])
+@alru_cache(maxsize=32)
 async def get_all_users(session: AsyncSession = Depends(get_async_session)):
     query = select(user)
     result = await session.execute(query)
@@ -112,8 +116,17 @@ async def get_all_users(session: AsyncSession = Depends(get_async_session)):
 
 
 @router.get("/id", response_model=UserRead)
+@alru_cache(maxsize=32)
 async def get_user_by_id(id: int = Depends(current_user), session: AsyncSession = Depends(get_async_session)):
     query = select(user).where(user.c.id == id.id)
+    result = await session.execute(query)
+    return result.first()
+
+
+@router.get("/{id}", response_model=UserRead)
+@alru_cache(maxsize=32)
+async def get_user_by_id_not_cookie(id: int, session: AsyncSession = Depends(get_async_session)):
+    query = select(user).where(user.c.id == id)
     result = await session.execute(query)
     return result.first()
 

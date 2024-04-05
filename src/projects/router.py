@@ -1,3 +1,4 @@
+import logger
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi_pagination import Page, paginate, add_pagination
 from sqlalchemy import select, func
@@ -11,13 +12,16 @@ from src.database import get_async_session
 from src.projects.models import projects, users_projects
 from src.projects.schemas import Projects, UsersProjectsResponse, ProjectsRequest, ProjectWithTaskCount
 from src.tasks.models import tasks
+from async_lru import alru_cache
 
 router = APIRouter(
     prefix="/projects",
     tags=["Projects"]
 )
 
+
 @router.get("/", response_model=Page[Projects])
+@alru_cache(maxsize=32)
 async def get_all_projects(session: AsyncSession = Depends(get_async_session)):
     query = select(projects)
     result = await session.execute(query)
@@ -45,6 +49,7 @@ async def create_project(project: ProjectsRequest, session: AsyncSession = Depen
 
 
 @router.get("/{id}", response_model=ProjectWithTaskCount)
+@alru_cache(maxsize=32)
 async def get_project_with_task_count(id: int, session: AsyncSession = Depends(get_async_session)):
     try:
         project_query = select(projects).where(projects.c.id == id)
@@ -52,15 +57,17 @@ async def get_project_with_task_count(id: int, session: AsyncSession = Depends(g
         project = project_result.first()
 
         if project is None:
+            logger.error('Not Found')
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
         task_count_query = select(func.count()).where(tasks.c.project_id == id)
         task_count_result = await session.execute(task_count_query)
         task_count = task_count_result.first()
-
+        logger.logger.info(f'Methon: get_project_with_task_count: Status OK')
         return {"project": project, "task_count": int(task_count[0])}
 
     except Exception as e:
+        logger.logger.error(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
@@ -72,6 +79,7 @@ async def delete_project_by_id(id: int, session: AsyncSession = Depends(get_asyn
 
 
 @router.get("/user_projects/{user_id}")
+@alru_cache(maxsize=32)
 async def get_user_projects_by_user_id(user_id: int = Depends(current_user),
                                        session: AsyncSession = Depends(get_async_session)):
     query = (
