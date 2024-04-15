@@ -3,7 +3,6 @@ from src.auth.models import user
 
 metadata = MetaData()
 
-# Таблица профилей
 profile = Table(
     'profile',
     metadata,

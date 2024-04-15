@@ -24,32 +24,13 @@ s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
                          )
 
 
-# @router.post("/upload-photo/")
-# async def upload_photo(user_id: int, full_name: str, photo: UploadFile = File(...),
-#                        session: AsyncSession = Depends(get_async_session), ):
-#     try:
-#         photo_data = await photo.read()
-#         photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
-#         s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
-#
-#         async for session in get_async_session():
-#             query = update(profile).where(profile.c.user_id == user_id).values(
-#                 photo_url=f"http://localhost:4566/vano/{photo_key}")
-#             await session.execute(query)
-#             await session.commit()
-#
-#         return {"message": "Photo uploaded successfully"}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error occurred during photo upload: {str(e)}")
 @router.put("/upload/photo")
 async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(None),
                          session: AsyncSession = Depends(get_async_session)):
     try:
         if photo is not None:
-            # Чтение данных фотографии
             photo_data = await photo.read()
 
-            # Загрузка фотографии в хранилище
             photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
             s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
 
@@ -58,14 +39,12 @@ async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(
             photo_url = None
 
         async with session.begin():
-            # Обновление данных профиля в базе данных
             query = (
                 update(profile)
                 .where(profile.c.user_id == user_id)
                 .values(full_name=full_name)
             )
 
-            # If photo is not None, include photo_url in the update query
             if photo_url is not None:
                 query = query.values(photo_url=photo_url)
 
@@ -101,7 +80,6 @@ async def get_user_profile(user_id: int, session: AsyncSession = Depends(get_asy
 async def get_all_profiles(session: AsyncSession = Depends(get_async_session)):
     query = select(profile)
     result = await session.execute(query)
-    print(result)
 
     return paginate(result.fetchall())
 

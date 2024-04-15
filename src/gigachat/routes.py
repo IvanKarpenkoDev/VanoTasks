@@ -8,7 +8,7 @@ router = APIRouter(
 )
 
 chat = GigaChat(
-    credentials='ZGNhZmExYWYtM2M5ZC00YTI2LWIzZmYtYjIyYTU1OTJiZTg4OmI0ZmEzY2Y5LTg5ZTItNGUxYi04YWNjLTBiZjkxMDY1YmU5Zg==',
+    credentials='ZGNhZmExYWYtM2M5ZC00YTI2LWIzZmYtYjIyYTU1OTJiZTg4OmY5MzAzZjA5LTk0YzMtNGE2MS1hZGIxLTI1YzZkMzYxYTc3OA==',
     verify_ssl_certs=False)
 
 messages = [

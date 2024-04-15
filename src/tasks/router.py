@@ -1,8 +1,9 @@
+import boto3
 from async_lru import alru_cache
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi_pagination import add_pagination, Page, paginate
 from logger import logger
-from sqlalchemy import select, func, text
+from sqlalchemy import select, func, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -16,57 +17,6 @@ router = APIRouter(
     prefix="/tasks",
     tags=["Tasks"]
 )
-
-
-# logger = logging.getLogger(__name__)
-# logger = logging.getLogger(__name__)
-# logger.setLevel(logging.ERROR)
-#
-# sender_email = "testmailasp@mail.ru"
-# sender_password = "eJrai4Xtxvs78s4gQzBd"
-# receiver_email = "ihapaz12345@gmail.com"
-#
-#
-# def send_email(sender_email, sender_password, receiver_email, subject, logger, level=logging.INFO):
-#     try:
-#         with smtplib.SMTP_SSL('smtp.mail.ru', 465) as smtp:
-#             smtp.login(sender_email, sender_password)
-#
-#             msg = MIMEMultipart()
-#             msg['From'] = sender_email
-#             msg['To'] = receiver_email
-#             msg['Subject'] = subject
-#
-#             # Get logs
-#             logs = get_logs(logger, level)
-#
-#             msg.attach(MIMEText(logs, 'plain'))
-#
-#             smtp.send_message(msg)
-#     except Exception as e:
-#         print(f"Failed to send email: {e}")
-#
-#
-# def get_logs(logger, level):
-#     log_stream = io.StringIO()
-#     handler = logging.StreamHandler(log_stream)
-#     formatter = logging.Formatter('%(levelname)s - %(message)s')
-#     handler.setFormatter(formatter)
-#     logger.addHandler(handler)
-#     logger.setLevel(level)
-#
-#     # Log whatever you want
-#     logger.info('Your log message here')
-#     # Remove the handler
-#     logger.removeHandler(handler)
-#
-#     return log_stream.getvalue()
-#
-#
-# sender_email = "testmailasp@mail.ru"
-# sender_password = "eJrai4Xtxvs78s4gQzBd"
-# receiver_email = "ihapaz12345@gmail.com"
-# subject = "VanoTasksLogger"
 
 
 @router.post("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -83,6 +33,7 @@ async def create_task(task: TasksRequest, session: AsyncSession = Depends(get_as
 
         await session.execute(new_task)
         await session.commit()
+
 
     except IntegrityError as e:
         await session.rollback()
@@ -133,6 +84,7 @@ async def get_task_by_id(task_id: int, session: AsyncSession = Depends(get_async
                            tasks.project_id,
                            tasks.created_at,
                            tasks.due_date,
+                           tasks.file_url,
                            projects.project_name AS project_name
                     FROM tasks
                     JOIN projects ON tasks.project_id = projects.id
@@ -165,6 +117,7 @@ async def get_all_tasks(session: AsyncSession = Depends(get_async_session)):
                                    tasks.project_id,
                                    tasks.created_at,
                                    tasks.due_date,
+                                    tasks.file_url,
                                    projects.project_name AS project_name
                             FROM tasks
                             JOIN projects ON tasks.project_id = projects.id
@@ -183,38 +136,68 @@ async def delete_task_by_id(task_id: int, session: AsyncSession = Depends(get_as
     await session.commit()
 
 
-@router.get("/user_tasks/user_id", response_model=list[Tasks])
-async def get_users_tasks_by_user_user_id(user_id: int = Depends(current_user),
+@router.get("/user_tasks/{user_id}", response_model=list[Tasks])
+async def get_users_tasks_by_user_user_id(user_id: int,
                                           session: AsyncSession = Depends(get_async_session)):
     try:
-        query = select(tasks).where(tasks.c.assigned_to == user_id.id or tasks.c.created_by == user_id.id)
+        query = select(tasks).where(tasks.c.assigned_to == user_id or tasks.c.created_by == user_id)
         result = await session.execute(query)
         return result.all()
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.get("/charts/user_id", response_model=TasksCharts)
+@router.get("/charts/{user_id}", response_model=TasksCharts)
 @alru_cache(maxsize=32)
-async def get_user_charts_tasks(user_id: int = Depends(current_user),
+async def get_user_charts_tasks(user_id: int,
                                 session: AsyncSession = Depends(get_async_session)):
     try:
-        query_open = select(func.count()).where(tasks.c.assigned_to == user_id.id,
+        query_open = select(func.count()).where(tasks.c.assigned_to == user_id,
                                                 tasks.c.status_id == 1)
-        result = await session.execute(query_open)
-        open = result.scalar_one_or_none(),
-        query_in_progress = select(tasks).where(tasks.c.assigned_to == user_id.id,
-                                                tasks.c.status_id == 2)
+        result_open = await session.execute(query_open)
+        open_tasks = result_open.scalar_one_or_none()
+        query_in_progress = select(func.count()).where(tasks.c.assigned_to == user_id,
+                                                       tasks.c.status_id == 2)
         result_in_progress = await session.execute(query_in_progress)
         in_progress = result_in_progress.scalar_one_or_none()
-        query_close = select(tasks).where(tasks.c.assigned_to == user_id.id,
-                                          tasks.c.status_id == 3)
+
+        query_close = select(func.count()).where(tasks.c.assigned_to == user_id,
+                                                 tasks.c.status_id == 3)
         result_close = await session.execute(query_close)
         close = result_close.scalar_one_or_none()
         response = {
-            'open': open[0] if open is not None else 0,
-            'in_progress': in_progress[0] if in_progress is not None else 0,
-            'close': close[0] if close is not None else 0,
+            'open': open_tasks if open_tasks is not None else 0,
+            'in_progress': in_progress if in_progress is not None else 0,
+            'close': close if close is not None else 0,
+        }
+
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/project/charts/{project_id}", response_model=TasksCharts)
+@alru_cache(maxsize=32)
+async def get_user_charts_tasks(project_id: int,
+                                session: AsyncSession = Depends(get_async_session)):
+    try:
+        query_open = select(func.count()).where(tasks.c.project_id == project_id,
+                                                tasks.c.status_id == 1)
+        result_open = await session.execute(query_open)
+        open_tasks = result_open.scalar_one_or_none()
+        query_in_progress = select(func.count()).where(tasks.c.project_id == project_id,
+                                                       tasks.c.status_id == 2)
+        result_in_progress = await session.execute(query_in_progress)
+        in_progress = result_in_progress.scalar_one_or_none()
+
+        query_close = select(func.count()).where(tasks.c.project_id == project_id,
+                                                 tasks.c.status_id == 3)
+        result_close = await session.execute(query_close)
+        close = result_close.scalar_one_or_none()
+        response = {
+            'open': open_tasks if open_tasks is not None else 0,
+            'in_progress': in_progress if in_progress is not None else 0,
+            'close': close if close is not None else 0,
         }
 
         return response
@@ -312,6 +295,41 @@ async def get_task_status(task_id: int, session: AsyncSession = Depends(get_asyn
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
+                         aws_access_key_id='VANO@GMAIL.COMasdasdasd',
+                         aws_secret_access_key='IAMVANOasdasdas'
+                         )
+
+
+@router.put("/upload/file")
+async def update_file(task_id: int, full_name: str, photo: UploadFile = File(None),
+                      session: AsyncSession = Depends(get_async_session)):
+    try:
+        if photo is not None:
+            photo_data = await photo.read()
+
+            photo_key = f"tasks_photos/{task_id}_{full_name}_{photo.filename}"
+            s3_client.put_object(Bucket='file', Key=photo_key, Body=photo_data)
+
+            file_url = f"http://localhost:4566/file/{photo_key}"
+        else:
+            file_url = None
+
+        async with session.begin():
+            query = (
+                update(tasks)
+                .where(tasks.c.task_id == task_id)
+                .values(file_url=file_url)
+            )
+
+            await session.execute(query)
+
+        return {"message": "Profile updated successfully"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error occurred during profile update: {str(e)}")
 
 
 add_pagination(router)

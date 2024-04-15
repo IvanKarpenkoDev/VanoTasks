@@ -14,6 +14,8 @@ class Tasks(BaseModel):
     project_id: int
     created_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
+    file_url: Optional[str] = None
+
 
 class TasksWithName(BaseModel):
     task_id: int
@@ -26,9 +28,12 @@ class TasksWithName(BaseModel):
     project_name: str
     created_at: Optional[datetime] = None
     due_date: Optional[datetime] = None
+    file_url: Optional[str] = None
+
 
 class TasksWithProjectName(Tasks):
     project_name: str
+
 
 class TasksCharts(BaseModel):
     open: int
@@ -40,7 +45,6 @@ class TasksRequest(BaseModel):
     task_name: str
     description: Optional[str] = None
     assigned_to: Optional[int] = None
-    # created_by: int
     project_id: int
 
 

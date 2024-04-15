@@ -19,6 +19,7 @@ s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
                          aws_secret_access_key='IAMVANOasdasdas'
                          )
 s3_client.create_bucket(Bucket='vano')
+s3_client.create_bucket(Bucket='file')
 
 app.add_middleware(
     CORSMiddleware,
