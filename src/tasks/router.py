@@ -10,8 +10,9 @@ from starlette import status
 from src.auth.base_config import current_user
 from src.database import get_async_session
 from src.tasks.models import tasks, task_comments, task_statuses
-from src.tasks.schemas import Tasks, TasksRequest, TaskComments, TaskCommentsRequest, TaskStatuses, TasksCharts, \
+from src.tasks.schemas import Tasks, TaskComments, TaskCommentsRequest, TaskStatuses, TasksCharts, \
     TasksWithName
+from fastapi import Form
 
 router = APIRouter(
     prefix="/tasks",
@@ -20,20 +21,30 @@ router = APIRouter(
 
 
 @router.post("/", status_code=status.HTTP_204_NO_CONTENT)
-async def create_task(task: TasksRequest, session: AsyncSession = Depends(get_async_session),
+async def create_task(task_name: str = Form(...), description: str = Form(...),
+                      assigned_to: int = Form(...), project_id: int = Form(...),
+                      photo: UploadFile = File(None),
+                      session: AsyncSession = Depends(get_async_session),
                       user=Depends(current_user)):
     try:
         new_task = tasks.insert().values(
-            task_name=task.task_name,
-            description=task.description,
-            assigned_to=task.assigned_to,
+            task_name=task_name,
+            description=description,
+            assigned_to=assigned_to,
             created_by=user.id,
-            project_id=task.project_id,
+            project_id=project_id,
         )
 
         await session.execute(new_task)
         await session.commit()
 
+        # Если есть файл, обновляем ссылку на файл в базе данных
+        if photo is not None:
+            # Получаем ID только что созданной задачи
+            task_id = (await session.execute(select(func.max(tasks.c.task_id)))).scalar()
+
+            # Обновляем ссылку на файл
+            await update_file(task_id, photo, session=session)
 
     except IntegrityError as e:
         await session.rollback()
@@ -41,7 +52,10 @@ async def create_task(task: TasksRequest, session: AsyncSession = Depends(get_as
 
 
 @router.put("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def update_task(task_id: int, updated_task: TasksRequest, session: AsyncSession = Depends(get_async_session),
+async def update_task(task_id: int, task_name: str = Form(...), description: str = Form(...),
+                      assigned_to: int = Form(...), project_id: int = Form(...),
+                      photo: UploadFile = File(None),
+                      session: AsyncSession = Depends(get_async_session),
                       user=Depends(current_user)):
     try:
         task_query = select(tasks).where(tasks.c.task_id == task_id)
@@ -52,11 +66,15 @@ async def update_task(task_id: int, updated_task: TasksRequest, session: AsyncSe
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
         update_values = {
-            "task_name": updated_task.task_name,
-            "description": updated_task.description,
-            "assigned_to": updated_task.assigned_to,
-            "project_id": updated_task.project_id
+            "task_name": task_name,
+            "description": description,
+            "assigned_to": assigned_to,
+            "project_id": project_id
         }
+
+        # Если есть файл, обновляем ссылку на файл в базе данных
+        if photo is not None:
+            await update_file(task_id, photo, session=session)
 
         await session.execute(
             tasks.update().where(tasks.c.task_id == task_id).values(**update_values)
@@ -303,28 +321,54 @@ s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
                          )
 
 
-@router.put("/upload/file")
-async def update_file(task_id: int, full_name: str, photo: UploadFile = File(None),
+# @router.put("/upload/file")
+# async def update_file(task_id: int, photo: UploadFile = File(None),
+#                       session: AsyncSession = Depends(get_async_session)):
+#     try:
+#         if photo is not None:
+#             photo_data = await photo.read()
+#
+#             photo_key = f"tasks_photos/{task_id}_{photo.filename}"
+#             s3_client.put_object(Bucket='file', Key=photo_key, Body=photo_data)
+#
+#             file_url = f"http://localhost:4566/file/{photo_key}"
+#         else:
+#             file_url = None
+#
+#         async with session.begin():
+#             query = (
+#                 update(tasks)
+#                 .where(tasks.c.task_id == task_id)
+#                 .values(file_url=file_url)
+#             )
+#
+#             await session.execute(query)
+#
+#         return {"message": "Profile updated successfully"}
+#
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Error occurred during profile update: {str(e)}")
+async def update_file(task_id: int, photo: UploadFile = File(None),
                       session: AsyncSession = Depends(get_async_session)):
     try:
         if photo is not None:
             photo_data = await photo.read()
 
-            photo_key = f"tasks_photos/{task_id}_{full_name}_{photo.filename}"
+            photo_key = f"tasks_photos/{task_id}_{photo.filename}"
             s3_client.put_object(Bucket='file', Key=photo_key, Body=photo_data)
 
             file_url = f"http://localhost:4566/file/{photo_key}"
         else:
             file_url = None
 
-        async with session.begin():
-            query = (
-                update(tasks)
-                .where(tasks.c.task_id == task_id)
-                .values(file_url=file_url)
-            )
+        query = (
+            update(tasks)
+            .where(tasks.c.task_id == task_id)
+            .values(file_url=file_url)
+        )
 
-            await session.execute(query)
+        await session.execute(query)
+        await session.commit()
 
         return {"message": "Profile updated successfully"}
 

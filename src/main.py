@@ -2,6 +2,8 @@ import boto3
 from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_fastapi_instrumentator import Instrumentator
+
 from src.auth.base_config import auth_backend, fastapi_users
 from src.auth.schemas import UserCreate
 from src.projects.router import router as router_operation
@@ -13,6 +15,8 @@ from src.auth.schemas import UserRead
 app = FastAPI(
     title="Vano Tasks"
 )
+
+Instrumentator().instrument(app).expose(app)
 
 s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
                          aws_access_key_id='VANO@GMAIL.COMasdasdasd',
