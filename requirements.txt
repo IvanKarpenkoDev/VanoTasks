@@ -11,3 +11,5 @@ fastapi_pagination
 gigachat
 gigachain
 logger
+prometheus-fastapi-instrumentator
+async-lru

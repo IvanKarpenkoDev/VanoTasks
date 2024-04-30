@@ -315,7 +315,7 @@ async def get_task_status(task_id: int, session: AsyncSession = Depends(get_asyn
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
+s3_client = boto3.client('s3', endpoint_url='http://localstack:4566',
                          aws_access_key_id='VANO@GMAIL.COMasdasdasd',
                          aws_secret_access_key='IAMVANOasdasdas'
                          )
@@ -331,7 +331,7 @@ s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
 #             photo_key = f"tasks_photos/{task_id}_{photo.filename}"
 #             s3_client.put_object(Bucket='file', Key=photo_key, Body=photo_data)
 #
-#             file_url = f"http://localhost:4566/file/{photo_key}"
+#             file_url = f"http://localstack:4566/file/{photo_key}"
 #         else:
 #             file_url = None
 #
@@ -357,7 +357,7 @@ async def update_file(task_id: int, photo: UploadFile = File(None),
             photo_key = f"tasks_photos/{task_id}_{photo.filename}"
             s3_client.put_object(Bucket='file', Key=photo_key, Body=photo_data)
 
-            file_url = f"http://localhost:4566/file/{photo_key}"
+            file_url = f"http://localstack:4566/file/{photo_key}"
         else:
             file_url = None
 

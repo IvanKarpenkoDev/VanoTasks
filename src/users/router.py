@@ -18,7 +18,7 @@ router = APIRouter(
     tags=["Users"]
 )
 
-s3_client = boto3.client('s3', endpoint_url='http://localhost:4566',
+s3_client = boto3.client('s3', endpoint_url='http://localstack:4566',
                          aws_access_key_id='VANO@GMAIL.COMasdasdasd',
                          aws_secret_access_key='IAMVANOasdasdas'
                          )
@@ -34,7 +34,7 @@ async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(
             photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
             s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
 
-            photo_url = f"http://localhost:4566/vano/{photo_key}"
+            photo_url = f"http://localstack:4566/vano/{photo_key}"
         else:
             photo_url = None
 
