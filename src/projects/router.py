@@ -1,5 +1,7 @@
+import logger
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi_pagination import Page, paginate, add_pagination
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette import status
@@ -8,7 +10,9 @@ from src.auth.models import user
 from src.auth.schemas import UserRead
 from src.database import get_async_session
 from src.projects.models import projects, users_projects
-from src.projects.schemas import Projects, UsersProjectsResponse, ProjectsRequest
+from src.projects.schemas import Projects, UsersProjectsResponse, ProjectsRequest, ProjectWithTaskCount
+from src.tasks.models import tasks
+from async_lru import alru_cache
 
 router = APIRouter(
     prefix="/projects",
@@ -16,11 +20,13 @@ router = APIRouter(
 )
 
 
-@router.get("/", response_model=list[Projects])
+@router.get("/", response_model=Page[Projects])
+@alru_cache(maxsize=32)
 async def get_all_projects(session: AsyncSession = Depends(get_async_session)):
     query = select(projects)
     result = await session.execute(query)
-    return result.all()
+
+    return paginate(result.fetchall())
 
 
 @router.post("/", status_code=status.HTTP_204_NO_CONTENT)
@@ -42,11 +48,27 @@ async def create_project(project: ProjectsRequest, session: AsyncSession = Depen
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad Request')
 
 
-@router.get("/{id}", response_model=Projects)
-async def get_project_by_id(id: int, session: AsyncSession = Depends(get_async_session), user=Depends(current_user)):
-    query = select(projects).where(projects.c.id == id)
-    result = await session.execute(query)
-    return result.first()
+@router.get("/{id}", response_model=ProjectWithTaskCount)
+@alru_cache(maxsize=32)
+async def get_project_with_task_count(id: int, session: AsyncSession = Depends(get_async_session)):
+    try:
+        project_query = select(projects).where(projects.c.id == id)
+        project_result = await session.execute(project_query)
+        project = project_result.first()
+
+        if project is None:
+            logger.error('Not Found')
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+
+        task_count_query = select(func.count()).where(tasks.c.project_id == id)
+        task_count_result = await session.execute(task_count_query)
+        task_count = task_count_result.first()
+        logger.logger.info(f'Methon: get_project_with_task_count: Status OK')
+        return {"project": project, "task_count": int(task_count[0])}
+
+    except Exception as e:
+        logger.logger.error(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -57,6 +79,7 @@ async def delete_project_by_id(id: int, session: AsyncSession = Depends(get_asyn
 
 
 @router.get("/user_projects/{user_id}")
+@alru_cache(maxsize=32)
 async def get_user_projects_by_user_id(user_id: int = Depends(current_user),
                                        session: AsyncSession = Depends(get_async_session)):
     query = (
@@ -74,20 +97,14 @@ async def get_user_projects_by_user_id(user_id: int = Depends(current_user),
     return projects1
 
 
-@router.post("/user_projects/{username}/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def add_user_project(username: str, project_id: int, session: AsyncSession = Depends(get_async_session)):
-    user_query = select(user.c.id).where(user.c.username == username)
-    user_result = await session.execute(user_query)
-    user_row = user_result.first()
-    if user_row is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"User '{username}' not found")
-
+@router.post("/user_projects/{user_id}/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def add_user_project(user_id: int, project_id: int, session: AsyncSession = Depends(get_async_session)):
     try:
-        await session.execute(users_projects.insert().values(user_id=user_row.id, project_id=project_id))
+        await session.execute(users_projects.insert().values(user_id=user_id, project_id=project_id))
         await session.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         await session.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User project already exists")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"User project already exists{e}")
 
 
 @router.delete("/user_projects/{username}/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -115,3 +132,6 @@ async def get_project_users(project_id: int, session: AsyncSession = Depends(get
     result = await session.execute(query)
 
     return result.all()
+
+
+add_pagination(router)

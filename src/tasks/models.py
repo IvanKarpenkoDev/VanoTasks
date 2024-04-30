@@ -9,8 +9,6 @@ from src.projects.models import projects
 
 metadata = MetaData()
 
-
-# Таблица статусов задач
 task_statuses = Table(
     'task_statuses',
     metadata,
@@ -18,8 +16,6 @@ task_statuses = Table(
     Column('status_name', String(50), unique=True, nullable=False)
 )
 
-
-# Таблица задач
 tasks = Table(
     'tasks',
     metadata,
@@ -31,14 +27,17 @@ tasks = Table(
     Column('created_by', Integer, ForeignKey(user.c.id), nullable=False),
     Column('project_id', Integer, ForeignKey(projects.c.id, ondelete='CASCADE'), nullable=False),
     Column('created_at', TIMESTAMP, default=datetime.utcnow),
-    Column('due_date', TIMESTAMP, default=datetime.utcnow)
+    Column('due_date', TIMESTAMP, default=datetime.utcnow),
+    Column('file_url', String, nullable=True),
 )
 
-# -- Создание таблицы комментариев к задачам
-# CREATE TABLE task_comments (
-#     comment_id SERIAL PRIMARY KEY,
-#     task_id INTEGER REFERENCES tasks(task_id) NOT NULL,
-#     commenter_id INTEGER REFERENCES users(user_id) NOT NULL,
-#     comment_text TEXT NOT NULL,
-#     commented_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-# );
+
+task_comments = Table(
+    'task_comments',
+    metadata,
+    Column('comment_id', Integer, primary_key=True, autoincrement=True),
+    Column('comment_text', String, nullable=False),
+    Column('task_id', Integer, ForeignKey(tasks.c.task_id), nullable=False),
+    Column('commenter_id', Integer, ForeignKey(user.c.id), nullable=False),
+    Column('commented_at', TIMESTAMP, default=datetime.utcnow),
+)

@@ -12,6 +12,10 @@ class Projects(BaseModel):
     created_by: int
     created_at: Optional[datetime] = None
 
+class ProjectWithTaskCount(BaseModel):
+    project: Projects
+    task_count: int
+
 class ProjectsRequest(BaseModel):
     project_name: str
     description: str = None
