@@ -107,5 +107,11 @@ async def get_user_by_id(id: int = Depends(current_user), session: AsyncSession 
     result = await session.execute(query)
     return result.first()
 
+@router.get("/{id}", response_model=UserRead)
+async def get_user_by_id_dynamic(id: int, session: AsyncSession = Depends(get_async_session)):
+    query = select(user).where(user.c.id == id)
+    result = await session.execute(query)
+    return result.first()
+
 
 add_pagination(router)
