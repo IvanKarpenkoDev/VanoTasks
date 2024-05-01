@@ -3,6 +3,7 @@ from async_lru import alru_cache
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi_pagination import add_pagination, Page, paginate
 from logger import logger
+from datetime import date, timedelta, datetime
 from sqlalchemy import select, func, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -196,8 +197,8 @@ async def get_user_charts_tasks(user_id: int,
 
 @router.get("/project/charts/{project_id}", response_model=TasksCharts)
 @alru_cache(maxsize=32)
-async def get_user_charts_tasks(project_id: int,
-                                session: AsyncSession = Depends(get_async_session)):
+async def get_projects_charts_tasks(project_id: int,
+                                    session: AsyncSession = Depends(get_async_session)):
     try:
         query_open = select(func.count()).where(tasks.c.project_id == project_id,
                                                 tasks.c.status_id == 1)
