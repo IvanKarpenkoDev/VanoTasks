@@ -1,4 +1,6 @@
 import boto3
+from datetime import datetime, timedelta
+from typing import List
 from async_lru import alru_cache
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi_pagination import add_pagination, Page, paginate
@@ -12,7 +14,7 @@ from src.database import get_async_session
 from src.tasks.models import tasks, task_comments, task_statuses
 from src.tasks.schemas import Tasks, TaskComments, TaskCommentsRequest, TaskStatuses, TasksCharts, \
     TasksWithName
-from fastapi import Form
+from fastapi import Form, Cookie, HTTPException
 
 router = APIRouter(
     prefix="/tasks",
@@ -51,9 +53,12 @@ async def create_task(task_name: str = Form(...), description: str = Form(...),
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad request')
 
 
+
+from datetime import datetime
+
 @router.put("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def update_task(task_id: int, task_name: str = Form(...), description: str = Form(...),
-                      assigned_to: int = Form(...), project_id: int = Form(...),
+                      assigned_to: int = Form(...), project_id: int = Form(...), due_date: str = Form(...),
                       photo: UploadFile = File(None),
                       session: AsyncSession = Depends(get_async_session),
                       user=Depends(current_user)):
@@ -65,11 +70,17 @@ async def update_task(task_id: int, task_name: str = Form(...), description: str
         if existing_task is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
 
+        # Преобразовываем строку даты в объект datetime
+        formatted_due_date = datetime.fromisoformat(due_date)
+        
+        formatted_due_date = formatted_due_date.replace(tzinfo=None)
+
         update_values = {
             "task_name": task_name,
             "description": description,
             "assigned_to": assigned_to,
-            "project_id": project_id
+            "project_id": project_id,
+            "due_date": formatted_due_date  # Передаем объект datetime
         }
 
         # Если есть файл, обновляем ссылку на файл в базе данных
@@ -291,6 +302,48 @@ async def change_task_status(task_id: int, new_status_id: int, session: AsyncSes
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
+@router.get("/tasks_one_hour_left/{user_id}", response_model=List[TasksWithName])
+async def get_tasks_with_one_hour_left(user_id: int, session: AsyncSession = Depends(get_async_session)):
+    try:
+        # Получаем текущее время
+        current_time = datetime.now()
+
+        # Вычисляем время, которое будет через один час
+        one_hour_later = current_time + timedelta(hours=3)
+
+        # Форматируем время через один час для сравнения с дедлайном
+        one_hour_later = one_hour_later.replace(tzinfo=None)
+        
+
+        # Запрос для получения задач, у которых до дедлайна остался один час и фильтр по assigned_to
+        query = text(
+            f"""
+            SELECT tasks.task_id,
+                   tasks.task_name,
+                   tasks.description,
+                   tasks.status_id,
+                   tasks.assigned_to,
+                   tasks.created_by,
+                   tasks.project_id,
+                   tasks.created_at,
+                   tasks.due_date,
+                   tasks.file_url,
+                   projects.project_name AS project_name
+            FROM tasks
+            JOIN projects ON tasks.project_id = projects.id
+            WHERE tasks.due_date <= :one_hour_later AND tasks.assigned_to = :user_id
+            """
+        ).bindparams(one_hour_later=one_hour_later, user_id=user_id)
+
+        # Выполняем запрос
+        result = await session.execute(query)
+
+        # Возвращаем результат запроса
+        return result.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+    
 @router.get("/{task_id}/status", response_model=TaskStatuses)
 @alru_cache(maxsize=32)
 async def get_task_status(task_id: int, session: AsyncSession = Depends(get_async_session)):
@@ -357,7 +410,7 @@ async def update_file(task_id: int, photo: UploadFile = File(None),
             photo_key = f"tasks_photos/{task_id}_{photo.filename}"
             s3_client.put_object(Bucket='file', Key=photo_key, Body=photo_data)
 
-            file_url = f"http://localstack:4566/file/{photo_key}"
+            file_url = f"http://localhost:4566/file/{photo_key}"
         else:
             file_url = None
 
@@ -374,6 +427,5 @@ async def update_file(task_id: int, photo: UploadFile = File(None),
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error occurred during profile update: {str(e)}")
-
 
 add_pagination(router)

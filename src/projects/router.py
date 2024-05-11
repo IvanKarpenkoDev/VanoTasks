@@ -69,6 +69,27 @@ async def get_project_with_task_count(id: int, session: AsyncSession = Depends(g
     except Exception as e:
         logger.logger.error(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    
+@router.put("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def update_project(project_id: int, project: ProjectsRequest, session: AsyncSession = Depends(get_async_session),
+                         user=Depends(current_user)):
+    try:
+        updated_values = {
+            "project_name": project.project_name,
+            "description": project.description,
+            "project_code": project.project_code,
+            "created_by": user.id,
+        }
+
+        await session.execute(
+            projects.update().where(projects.c.id == project_id).values(**updated_values)
+        )
+        await session.commit()
+
+    except IntegrityError as e:
+        await session.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='Bad Request')
+
 
 
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -31,10 +31,10 @@ async def update_profile(user_id: int, full_name: str, photo: UploadFile = File(
         if photo is not None:
             photo_data = await photo.read()
 
-            photo_key = f"profile_photos/{user_id}_{full_name}_{photo.filename}"
+            photo_key = f"profile_photos/{user_id}_{photo.filename}"
             s3_client.put_object(Bucket='vano', Key=photo_key, Body=photo_data)
 
-            photo_url = f"http://localstack:4566/vano/{photo_key}"
+            photo_url = f"http://localhost:4566/vano/{photo_key}"
         else:
             photo_url = None
 
